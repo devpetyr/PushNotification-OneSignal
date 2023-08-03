@@ -34,43 +34,58 @@ class NotificationController extends Controller
     }
 
 
-    public function sendNotification(Request $request)
+    public function sendNotification($ExternalId,$body,$image = null)
     {
+        $appId = "686b9aa2-78a9-4d46-b9a2-aaf345e0fb96";
+        $appKeyToken = "NjBkOTBjNjgtOGI5YS00NDY2LWJkNDQtMTYzMGQ1ZDdjMjhj";
+        $userKeyToken = "ODU5MjUxMGQtNWQwMC00ZDM4LWIwMzgtZGYwMTg5NGIwMDhi";
         $config = Configuration::getDefaultConfiguration()
-            ->setAppKeyToken($this->appKeyToken)
-            ->setUserKeyToken($this->userKeyToken);
-    
+            ->setAppKeyToken($appKeyToken)
+            ->setUserKeyToken($userKeyToken);
+
         $apiInstance = new DefaultApi(new GuzzleHttp\Client(), $config);
-    
+
         $content = new StringMap();
-        $content->setEn('Hello, this is a test notification.');
-    
+        $content->setEn($body);
+
         $notification = new Notification();
-        $notification->setAppId($this->appId);
-        // $notification->setExternalId(Str::uuid('123456')->toString());
+        $notification->setAppId($appId);
         $notification->setContents($content);
-        $notification->setIncludedSegments(['Subscribed Users', 'Active Users']);
-        
+
+        //if external id exist or you want to send to specific member
+        if($ExternalId !== null && count($ExternalId) > 0)
+        {
+            $convertedExternalId = array_map('strval', $ExternalId);
+            $notification->setIncludeExternalUserIds($convertedExternalId);
+            $notification->setChannelForExternalUserIds('push');
+        }
+        else //else send to all subscribed users
+        {
+            $notification->setIncludedSegments(['Subscribed Users']);
+        }
+
         // Attach the image to the notification
-        $imageUrl = asset('banana.jpg'); // Replace with the URL of your image
+        $imageUrl = $image; // Replace with the URL of your image
         $notification->setBigPicture($imageUrl);    // for android
         $notification->setChromeWebImage($imageUrl); //for chrome
-        $notification->setIosAttachments('{"id1": "https://domain.com/image.jpg\"}');
-    
+        $notification->setIosAttachments('{"id1": '.$imageUrl.'}');
+
         // Set the URL to redirect on click
-        $url = 'https://www.google.com'; // Replace with the URL you want to redirect to
+        $url = url('/'); // Replace with the URL you want to redirect to
         $notification->setUrl($url);
-    
+
         $result = $apiInstance->createNotification($notification);
-        print_r($result);
+        return response()->json(['status'=>'1'],200);
     }
+}
+
 
     function getUserDetails($playerId)
     {
         $response = Http::withHeaders([
         'Authorization' => "Basic " . base64_encode("$this->userKeyToken:")
         ])->get("https://onesignal.com/api/v1/players/{$playerId}");
-    
+
         if ($response->successful()) {
             $userData = $response->json();
             return $userData;
@@ -79,5 +94,5 @@ class NotificationController extends Controller
             dd($response);
         }
     }
-    
+
 }
